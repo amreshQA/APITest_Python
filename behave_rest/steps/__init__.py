@@ -1,82 +1,117 @@
-import json
-
-import jpath
-import nose
 import requests
-from behave import *
-from nose.tools import assert_equal
+from behave import given, when, then
 
-use_step_matcher("parse")
+api_endpoints = {}
+request_headers = {}
+response_codes ={}
+response_texts={}
+request_bodies = {}
+api_url=None
 
+@given(u'I set sample REST API "{url}"')
+def step_impl(context,url):
+    global api_url
+    api_url = url
+# START POST Scenario
+@given(u'I Set POST posts api endpoint')
+def step_impl(context):
+    api_endpoints['POST_URL'] = api_url+'/posts'
+    print('url :'+api_endpoints['POST_URL'])
 
-@given('I set base URL to "{base_url}"')
-def set_base_url(context, base_url):
-    if base_url.startswith("context"):
-        context.base_url = getattr(context, base_url[8:])
-    else:
-        context.base_url = base_url.encode('ascii')
+@when(u'I Set HEADER param request content type as "{header_conent_type}"')
+def step_impl(context, header_conent_type):
+    request_headers['Content-Type'] = header_conent_type
 
+#You may also include "And" or "But" as a step - these are renamed by behave to take the name of their preceding step, so:
+@when(u'Set request Body')
+def step_impl(context):
+    request_bodies['POST']={"title": "foo","body": "bar","userId": "1"}
 
-@when('I make a {request_verb} request to "{url_path_segment}"')
-def get_request(context, request_verb, url_path_segment):
-    if not hasattr(context, 'verify_ssl'):
-        context.verify_ssl = True
+#You may also include "And" or "But" as a step - these are renamed by behave to take the name of their preceding step, so:
+@when(u'Send POST HTTP request')
+def step_impl(context):
+    # sending get request and saving response as response object
+    response = requests.post(url=api_endpoints['POST_URL'], json=request_bodies['POST'], headers=request_headers)
+    #response = requests.post(url=api_endpoints['POST_URL'], headers=request_headers) #https://jsonplaceholder.typicode.com/posts
+    # extracting response text
+    response_texts['POST']=response.text
+    print("post response :"+response.text)
+    # extracting response status_code
+    statuscode = response.status_code
+    response_codes['POST'] = statuscode
 
-    url = context.base_url+ url_path_segment
+@then(u'I receive valid HTTP response code 201')
+def step_impl(context):
+    print('Post rep code ;'+str(response_codes['POST']))
+    assert response_codes['POST'] is 201
+# END POST Scenario
 
-    context.r = getattr(requests, request_verb.lower())(url, headers=context.headers, verify=context.verify_ssl)
+# START GET Scenario
+@given(u'I Set GET posts api endpoint "{id}"')
+def step_impl(context,id):
+    api_endpoints['GET_URL'] = api_url+'/posts/'+id
+    print('url :'+api_endpoints['GET_URL'])
 
-    log_full(context.r)
+#You may also include "And" or "But" as a step - these are renamed by behave to take the name of their preceding step, so:
+@when(u'Send GET HTTP request')
+def step_impl(context):
+    # sending get request and saving response as response object
+    response = requests.get(url=api_endpoints['GET_URL'], headers=request_headers) #https://jsonplaceholder.typicode.com/posts
+    # extracting response text
+    response_texts['GET']=response.text
+    # extracting response status_code
+    statuscode = response.status_code
+    response_codes['GET'] = statuscode
 
-    return context.r
+@then(u'I receive valid HTTP response code 200 for "{request_name}"')
+def step_impl(context,request_name):
+    print('Get rep code for '+request_name+':'+ str(response_codes[request_name]))
+    assert response_codes[request_name] is 200
 
+@then(u'Response BODY "{request_name}" is non-empty')
+def step_impl(context,request_name):
+    print('request_name: '+request_name)
+    print(response_texts)
+    assert response_texts[request_name] is not None
+# END GET Scenario
 
+#START PUT/UPDATE
+@given(u'I Set PUT posts api endpoint for "{id}"')
+def step_impl(context,id):
+    api_endpoints['PUT_URL'] = api_url + '/posts/'+id
+    print('url :' + api_endpoints['PUT_URL'])
 
+@when(u'I Set Update request Body')
+def step_impl(context):
+    request_bodies['PUT']={"title": "foo","body": "bar","userId": "1","id": "1"}
 
-@step('the status code should be equal to {expected_http_status_code}')
-def status_code_validation(context, expected_http_status_code):
-    nose.tools.assert_equal(context.r.status_code, int(expected_http_status_code))
+@when(u'Send PUT HTTP request')
+def step_impl(context):
+    # sending get request and saving response as response object  # response = requests.post(url=api_endpoints['POST_URL'], headers=request_headers) #https://jsonplaceholder.typicode.com/posts
+    response = requests.put(url=api_endpoints['PUT_URL'], json=request_bodies['PUT'], headers=request_headers)
+    # extracting response text
+    response_texts['PUT'] = response.text
+    print("update response :" + response.text)
+    # extracting response status_code
+    statuscode = response.status_code
+    response_codes['PUT'] = statuscode
+#END PUT/UPDATE
 
+#START DELETE
+@given(u'I Set DELETE posts api endpoint for "{id}"')
+def step_impl(context,id):
+    api_endpoints['DELETE_URL'] = api_url + '/posts/'+id
+    print('url :' + api_endpoints['DELETE_URL'])
 
-@step('the response status code should not equal {invalid_http_status_code}')
-def status_code_validation(context, invalid_http_status_code):
-    nose.tools.assert_not_equal(context.r.status_code, int(invalid_http_status_code))
-
-
-@step('the response status message should be equal to {expected_http_status_codes}')
-def status_code_array_validation(context, expected_http_status_codes):
-    expected_codes_list = [int(x) for x in expected_http_status_codes.split(',')]
-    nose.tools.assert_in(context.r.status_code, expected_codes_list)
-
-
-@step('the response status message should equal "{expected_http_status_message}"')
-def status_message_validation(context, expected_http_status_message):
-    nose.tools.assert_equal(context.r.reason, str(expected_http_status_message))
-
-
-@step('the response parameter "{parameter_name}" should equal {expected_parameter_value}')
-def parameter_validation(context, parameter_name, expected_parameter_value):
-    data = context.r.json()
-
-    if expected_parameter_value.startswith("context"):
-        expected_parameter_value = getattr(context, expected_parameter_value[8:])
-        nose.tools.assert_equal(data[parameter_name], expected_parameter_value)
-    else:
-        converted_value = json.loads(expected_parameter_value)
-        nose.tools.assert_equal(data[parameter_name], converted_value)
-
-
-@step('the body content matches {expected_json_value}')
-def json_object_validation(context, json_path, expected_json_value):
-    data = context.r.json()
-    actual_json_value = jpath.get(json_path, data)
-
-    if expected_json_value.startswith("context"):
-        expected_json_value = getattr(context, expected_json_value[8:])
-        nose.tools.assert_equal(actual_json_value, expected_json_value)
-
-    else:
-        converted_value = json.loads(expected_json_value)
-        nose.tools.assert_equal(actual_json_value, converted_value)
-
-
+@when(u'I Send DELETE HTTP request')
+def step_impl(context):
+    # sending get request and saving response as response object
+    response = requests.delete(url=api_endpoints['DELETE_URL'])
+    # response = requests.post(url=api_endpoints['POST_URL'], headers=request_headers) #https://jsonplaceholder.typicode.com/posts
+    # extracting response text
+    response_texts['DELETE'] = response.text
+    print("DELETE response :" + response.text)
+    # extracting response status_code
+    statuscode = response.status_code
+    response_codes['DELETE'] = statuscode
+#END DELETE
