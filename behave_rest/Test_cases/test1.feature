@@ -11,7 +11,6 @@ Scenario: POST post example
   Then I receive valid HTTP response code 201
   And Response BODY "POST" is non-empty
 
-
 Scenario: GET posts example
   Given I Set GET posts api endpoint "1"
   When I Set HEADER param request content type as "application/json."
