@@ -30,7 +30,8 @@ Running
 
 More about behave tool you can read here https://pythonhosted.org/behave/index.html
 
-
+Sample Run
+------------
 
 E:\python\python.exe E:/python/Lib/site-packages/behave/__main__.py --no-capture -i test1
 Feature: Test CRUD methods in Sample REST API testing framework # test1.feature:1
